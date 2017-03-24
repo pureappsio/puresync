@@ -39,6 +39,17 @@ Template.admin.events({
 
     },
 
+    'click #set-facebook-pixel': function() {
+
+        // Add
+        Meteor.call('insertMeta', {
+            type: 'pixel',
+            value: $('#facebook-pixel').val(),
+            userId: Meteor.user()._id
+        });
+
+    },
+
     'click #facebook-test': function() {
 
         Meteor.call('updateAudiences');

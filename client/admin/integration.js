@@ -8,13 +8,4 @@ Template.integration.events({
 
 Template.integration.helpers({
 
-  list: function() {
-  	if (this.list) {
-  		return '[Connected to email list]';
-  	}
-  	else {
-  		return '';
-  	}
-  }
-
 });

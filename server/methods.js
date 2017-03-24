@@ -1,5 +1,22 @@
 Meteor.methods({
 
+    getSubscribers: function(listId, integrationId) {
+
+        // Get integration
+        var integration = Integrations.findOne(integrationId);
+
+        // Parameters
+        var baseUrl = 'https://' + integration.url + '/api/subscribers';
+        var key = integration.key;
+
+        // Query
+        request = baseUrl + '?key=' + key;
+        request += '&list=' + listId;
+
+        res = HTTP.get(request);
+        return res.data.subscribers;
+
+    },
     getBrandName: function(integrationId) {
 
         // Get integration
@@ -16,6 +33,44 @@ Meteor.methods({
         return res.data.value;
 
     },
+    getLanguage: function(integrationId) {
+
+        // Get integration
+        var integration = Integrations.findOne(integrationId);
+
+        // Parameters
+        var baseUrl = 'https://' + integration.url + '/api/metas/language';
+        var key = integration.key;
+
+        // Query
+        request = baseUrl + '?key=' + key;
+
+        res = HTTP.get(request);
+        return res.data.value;
+
+    },
+    getCheckoutPage: function(integrationId) {
+
+        // Get integration
+        var integration = Integrations.findOne(integrationId);
+
+        // Parameters
+        var baseUrl = 'https://' + integration.url + '/api/metas/homePage';
+        var key = integration.key;
+
+        // Query
+        request = baseUrl + '?key=' + key;
+
+        res = HTTP.get(request);
+        console.log(res);
+        if (res.data.value == 'store') {
+            return 'checkout';
+        } else {
+            return 'origin';
+        }
+
+
+    },
     getCustomers: function(integrationId) {
 
         // Get integration
@@ -30,6 +85,23 @@ Meteor.methods({
 
         res = HTTP.get(request);
         return res.data.customers;
+
+    },
+
+    getLists: function(integrationId) {
+
+        // Get integration
+        var integration = Integrations.findOne(integrationId);
+
+        // Parameters
+        var baseUrl = 'https://' + integration.url + '/api/lists';
+        var key = integration.key;
+
+        // Query
+        request = baseUrl + '?key=' + key;
+
+        res = HTTP.get(request);
+        return res.data.lists;
 
     },
 

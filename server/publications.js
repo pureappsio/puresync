@@ -1,5 +1,5 @@
 Meteor.publish("userAudiences", function() {
-    return Audiences.find();
+    return Audiences.find({});
 });
 
 Meteor.publish("userIntegrations", function() {
