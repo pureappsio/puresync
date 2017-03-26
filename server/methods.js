@@ -17,6 +17,24 @@ Meteor.methods({
         return res.data.subscribers;
 
     },
+    getListData: function(listId, integrationId) {
+
+        // Get integration
+        var integration = Integrations.findOne(integrationId);
+
+        // Parameters
+        var baseUrl = 'https://' + integration.url + '/api/lists/' + listId;
+        var key = integration.key;
+
+        // Query
+        request = baseUrl + '?key=' + key;
+
+        console.log(request);
+
+        res = HTTP.get(request);
+        return res.data;
+
+    },
     getBrandName: function(integrationId) {
 
         // Get integration
@@ -28,6 +46,8 @@ Meteor.methods({
 
         // Query
         request = baseUrl + '?key=' + key;
+
+        console.log(request);
 
         res = HTTP.get(request);
         return res.data.value;
@@ -44,6 +64,8 @@ Meteor.methods({
 
         // Query
         request = baseUrl + '?key=' + key;
+
+        console.log(request);
 
         res = HTTP.get(request);
         return res.data.value;

@@ -51,6 +51,7 @@ Meteor.methods({
         // Create/refresh audiences
         if (integration.type == 'purecart') {
             Meteor.call('updateCustomersAudience', integrationId);
+            Meteor.call('updateCheckoutAudience', integrationId);
             Meteor.call('updateAbandonAudience', integrationId);
         }
 
@@ -81,7 +82,7 @@ Meteor.methods({
                 var audienceData = Meteor.call('getFacebookAudience', audienceId, userId);
 
                 // If more than 100, create lookalike
-                if (audienceData.approximate_count >= 100) {
+                if (audienceData.approximate_count >= 110) {
 
                     Meteor.call('updateLookalikeAudience', audiences[a]._id);
 
@@ -106,13 +107,29 @@ Meteor.methods({
 
         } else {
 
-            console.log('New lookalike audience');
+            console.log('New lookalike audience for audience: ');
+            console.log(audience);
 
-            // Get brand details
-            var brand = Meteor.call('getBrandName', audience.integrationId);
+            if (audience.type == 'subscribers') {
 
-            // Get language
-            var language = Meteor.call('getLanguage', audience.integrationId);
+                var listData = Meteor.call('getListData', audience.listId, audience.integrationId);
+
+                var brand = listData.brandName;
+                if (listData.language) {
+                    var language = listData.language;
+                } else {
+                    var language = 'en';
+                }
+
+            } else {
+
+                // Get brand details
+                var brand = Meteor.call('getBrandName', audience.integrationId);
+
+                // Get language
+                var language = Meteor.call('getLanguage', audience.integrationId);
+
+            }
 
             parameters = {
                 name: brand + ": lookalike for " + audience.type,
@@ -133,16 +150,19 @@ Meteor.methods({
             // Create
             var facebookAudienceId = Meteor.call('createLookalikeAudience', parameters, audience.userId);
 
-            // Save
-            var audience = {
-                name: brand,
-                type: type,
-                facebookAudienceId: facebookAudienceId,
-                originFacebookAudienceId: audience.facebookAudienceId,
-                userId: audience.userId
+            if (facebookAudienceId) {
+                
+                // Save
+                var audience = {
+                    name: brand,
+                    type: type,
+                    facebookAudienceId: facebookAudienceId,
+                    originFacebookAudienceId: audience.facebookAudienceId,
+                    userId: audience.userId
+                }
+                console.log(audience);
+                Audiences.insert(audience);
             }
-            console.log(audience);
-            Audiences.insert(audience);
 
         }
 
@@ -292,6 +312,45 @@ Meteor.methods({
         }
 
     },
+    updateCheckoutAudience: function(integrationId) {
+
+        // Integration
+        var integration = Integrations.findOne(integrationId);
+
+        // Check if exists
+        if (Audiences.findOne({ type: 'checkout', integrationId: integrationId })) {
+
+            console.log('Updating checkout audience');
+
+        } else {
+
+            console.log('New checkout audience');
+
+            // Get brand details
+            var brand = Meteor.call('getBrandName', integrationId);
+
+            parameters = {
+                name: brand + ": visited checkout",
+                description: "All people that visited the checkout page on " + brand
+            }
+
+            // Create
+            var facebookAudienceId = Meteor.call('createCheckoutAudience', parameters, integration._id);
+
+            // Save
+            var audience = {
+                name: brand,
+                type: 'checkout',
+                facebookAudienceId: facebookAudienceId,
+                userId: integration.userId,
+                integrationId: integration._id
+            }
+            console.log(audience);
+            Audiences.insert(audience);
+
+        }
+
+    },
     updateWebsiteAudience: function(integrationId) {
 
         // Integration
@@ -411,6 +470,56 @@ Meteor.methods({
             var rule = {
                 and: [
                     { url: { i_not_contains: integration.url + '/purchase_confirmation' } },
+                    { url: { i_contains: integration.url } }
+                ]
+            };
+
+        }
+
+        // Parameters
+        var parameters = {
+            pixel_id: parseInt(pixel),
+            name: parameters.name,
+            subtype: "WEBSITE",
+            description: parameters.description,
+            retention_days: 30,
+            rule: JSON.stringify(rule),
+            prefill: true
+        };
+
+        console.log(parameters);
+
+        return Meteor.call('createFacebookAudience', parameters, user._id);
+
+    },
+    createCheckoutAudience: function(parameters, integrationId) {
+
+        // Integration
+        var integration = Integrations.findOne(integrationId);
+
+        // Find user
+        var user = Meteor.users.findOne(integration.userId);
+
+        // Pixel
+        var pixel = Metas.findOne({ type: 'pixel', userId: user._id }).value;
+
+        // Check which page is used for checkout
+        var checkoutPage = Meteor.call('getCheckoutPage', integrationId);
+
+        if (checkoutPage == 'checkout') {
+
+            // Rule
+            var rule = {
+                and: [
+                    { url: { i_contains: integration.url + '/checkout' } }
+                ]
+            };
+
+        } else {
+
+            // Rule
+            var rule = {
+                and: [
                     { url: { i_contains: integration.url } }
                 ]
             };
