@@ -1,5 +1,38 @@
 Meteor.methods({
 
+    getWebsitePages: function(integrationId) {
+
+        // Get integration
+        var integration = Integrations.findOne(integrationId);
+
+        // Parameters
+        var baseUrl = 'https://' + integration.url + '/api/pages';
+        var key = integration.key;
+
+        // Query
+        request = baseUrl + '?key=' + key;
+        request += '&type=purepages';
+
+        res = HTTP.get(request);
+        return res.data.pages;
+
+    },
+    getPurePage: function(pageId) {
+
+        // Get integration
+        var integration = Integrations.findOne({ type: 'purepages' });
+
+        // Parameters
+        var baseUrl = 'https://' + integration.url + '/api/pages/' + pageId;
+        var key = integration.key;
+
+        // Query
+        request = baseUrl + '?key=' + key;
+
+        res = HTTP.get(request);
+        return res.data.page;
+
+    },
     getSubscribers: function(listId, integrationId) {
 
         // Get integration

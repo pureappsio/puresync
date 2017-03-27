@@ -61,6 +61,7 @@ Meteor.methods({
 
         if (integration.type == 'purepress') {
             Meteor.call('updateWebsiteAudience', integrationId);
+            Meteor.call('updatePagesAudience', integrationId);
         }
 
     },
@@ -151,7 +152,7 @@ Meteor.methods({
             var facebookAudienceId = Meteor.call('createLookalikeAudience', parameters, audience.userId);
 
             if (facebookAudienceId) {
-                
+
                 // Save
                 var audience = {
                     name: brand,
@@ -357,7 +358,7 @@ Meteor.methods({
         var integration = Integrations.findOne(integrationId);
 
         // Check if exists
-        if (Audiences.findOne({ integrationId: integrationId })) {
+        if (Audiences.findOne({ type: 'visitors', integrationId: integrationId })) {
 
             console.log('Updating website audience');
 
@@ -380,6 +381,66 @@ Meteor.methods({
             var audience = {
                 name: brand,
                 type: 'visitors',
+                facebookAudienceId: facebookAudienceId,
+                userId: integration.userId,
+                integrationId: integration._id
+            }
+            console.log(audience);
+            Audiences.insert(audience);
+
+        }
+
+    },
+    updatePagesAudience: function(integrationId) {
+
+        // Integration
+        var integration = Integrations.findOne(integrationId);
+
+        // Get all Pure Pages
+        var pages = Meteor.call('getWebsitePages', integrationId);
+
+        var salesPages = [];
+
+        for (p in pages) {
+
+            var page = Meteor.call('getPurePage', pages[p].purePageId);
+
+            // Only take sales pages
+            if (page.model == 'salespage') {
+
+                // URL
+                var url = integration.url + '/' + pages[p].url;
+                salesPages.push(url);
+
+            }
+
+        }
+
+        // Check if exists
+        if (Audiences.findOne({ type: 'salespagesVisitors', integrationId: integrationId })) {
+
+            console.log('Updating sales pages audience');
+
+        } else {
+
+            console.log('New audience');
+
+            // Get brand details
+            var brand = Meteor.call('getBrandName', integrationId);
+
+            parameters = {
+                name: brand + ": sales pages visitors",
+                description: "All visitors of sales pages of " + brand,
+                pages: salesPages
+            }
+
+            // Create
+            var facebookAudienceId = Meteor.call('createWebsiteAudience', parameters, integration._id);
+
+            // Save
+            var audience = {
+                name: brand,
+                type: 'salespagesVisitors',
                 facebookAudienceId: facebookAudienceId,
                 userId: integration.userId,
                 integrationId: integration._id
@@ -553,12 +614,34 @@ Meteor.methods({
         // Pixel
         var pixel = Metas.findOne({ type: 'pixel', userId: user._id }).value;
 
-        // Rule
-        var rule = {
-            url: {
-                i_contains: integration.url
+        if (parameters.pages) {
+
+            var allPages = parameters.pages;
+            var ruleContent = [];
+
+            for (r in allPages) {
+
+                ruleContent.push({
+                    url: {
+                        i_contains: allPages[r]
+                    }
+                })
+
             }
-        };
+
+            var rule = {
+                or: ruleContent
+            }
+
+        } else {
+
+            // Rule
+            var rule = {
+                url: {
+                    i_contains: integration.url
+                }
+            };
+        }
 
         // Parameters
         var parameters = {
