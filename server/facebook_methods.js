@@ -52,6 +52,7 @@ Meteor.methods({
         if (integration.type == 'purecart') {
             Meteor.call('updateCustomersAudience', integrationId);
             Meteor.call('updateCheckoutAudience', integrationId);
+            Meteor.call('updateProductPagesAudience', integrationId);
             Meteor.call('updateAbandonAudience', integrationId);
         }
 
@@ -76,7 +77,7 @@ Meteor.methods({
 
             // Check if it is the right audience
             var type = audiences[a].type;
-            if (type == 'visitors' || type == 'subscribers' || type == 'customers') {
+            if (type == 'productPages' || type == 'salespagesVisitors' || type == 'visitors' || type == 'subscribers' || type == 'customers') {
 
                 // Get info
                 var audienceId = audiences[a].facebookAudienceId;
@@ -132,9 +133,15 @@ Meteor.methods({
 
             }
 
+            if (audience.type == 'salespagesVisitors') {
+                audienceName = 'sales pages visitors';
+            } else {
+                audienceName = audience.type;
+            }
+
             parameters = {
-                name: brand + ": lookalike for " + audience.type,
-                description: "Lookalike audience for " + audience.type + ' of ' + brand,
+                name: brand + ": lookalike for " + audienceName,
+                description: "Lookalike audience for " + audienceName + ' of ' + brand,
                 referenceAudienceId: audience.facebookAudienceId
             }
 
@@ -143,7 +150,7 @@ Meteor.methods({
                 parameters.country = 'FR';
 
             } else {
-                parameters.countries = ['US', 'CA', 'UK'];
+                parameters.countries = ['US', 'CA', 'GB', 'DE', 'SE', 'IE', 'AU'];
                 parameters.country = 'US';
 
             }
@@ -352,6 +359,84 @@ Meteor.methods({
         }
 
     },
+    updateProductPagesAudience: function(integrationId) {
+
+        // Integration
+        var integration = Integrations.findOne(integrationId);
+
+        // Check which page is used for checkout
+        var checkoutPage = Meteor.call('getCheckoutPage', integrationId);
+
+        if (checkoutPage == 'checkout') {
+
+            // Visited product pages
+            if (Audiences.findOne({ type: 'productPages', integrationId: integrationId })) {
+
+                console.log('Updating product pages audience');
+
+            } else {
+
+                console.log('New product pages audience');
+
+                // Get brand details
+                var brand = Meteor.call('getBrandName', integrationId);
+
+                parameters = {
+                    name: brand + ": visited product pages",
+                    description: "All people that visited product pages on " + brand
+                }
+
+                // Create
+                var facebookAudienceId = Meteor.call('createProductPagesAudience', parameters, integration._id);
+
+                // Save
+                var audience = {
+                    name: brand,
+                    type: 'productPages',
+                    facebookAudienceId: facebookAudienceId,
+                    userId: integration.userId,
+                    integrationId: integration._id
+                }
+                console.log(audience);
+                Audiences.insert(audience);
+
+            }
+
+            // Product page but didn't add to cart
+            if (Audiences.findOne({ type: 'productPagesVisitorsNoCart', integrationId: integrationId })) {
+
+                console.log('Updating product pages audience that did not add to cart');
+
+            } else {
+
+                console.log('New product pages audience that did not add to cart');
+
+                // Get brand details
+                var brand = Meteor.call('getBrandName', integrationId);
+
+                parameters = {
+                    name: brand + ": visited product pages but didn't add to cart",
+                    description: "All people that visited product pages on " + brand + " but did not add to cart."
+                }
+
+                // Create
+                var facebookAudienceId = Meteor.call('createProductPagesNoCartAudience', parameters, integration._id);
+
+                // Save
+                var audience = {
+                    name: brand,
+                    type: 'productPagesVisitorsNoCart',
+                    facebookAudienceId: facebookAudienceId,
+                    userId: integration.userId,
+                    integrationId: integration._id
+                }
+                console.log(audience);
+                Audiences.insert(audience);
+
+            }
+        }
+
+    },
     updateWebsiteAudience: function(integrationId) {
 
         // Integration
@@ -410,43 +495,128 @@ Meteor.methods({
 
                 // URL
                 var url = integration.url + '/' + pages[p].url;
-                salesPages.push(url);
+                salesPages.push({
+                    name: pages[p].title,
+                    url: url,
+                    target: page.target,
+                    _id: pages[p]._id
+                });
 
             }
 
         }
 
-        // Check if exists
-        if (Audiences.findOne({ type: 'salespagesVisitors', integrationId: integrationId })) {
+        if (pages.length > 0) {
 
-            console.log('Updating sales pages audience');
+            // Visited pages
+            if (Audiences.findOne({ type: 'salespagesVisitors', integrationId: integrationId })) {
 
-        } else {
+                console.log('Updating sales pages audience');
 
-            console.log('New audience');
+            } else {
 
-            // Get brand details
-            var brand = Meteor.call('getBrandName', integrationId);
+                console.log('New audience');
 
-            parameters = {
-                name: brand + ": sales pages visitors",
-                description: "All visitors of sales pages of " + brand,
-                pages: salesPages
+                // Get brand details
+                var brand = Meteor.call('getBrandName', integrationId);
+
+                parameters = {
+                    name: brand + ": sales pages visitors",
+                    description: "All visitors of sales pages of " + brand,
+                    pages: salesPages,
+                    type: "salespagesVisitors"
+                }
+
+                // Create
+                var facebookAudienceId = Meteor.call('createWebsiteAudience', parameters, integration._id);
+
+                // Save
+                var audience = {
+                    name: brand,
+                    type: 'salespagesVisitors',
+                    facebookAudienceId: facebookAudienceId,
+                    userId: integration.userId,
+                    integrationId: integration._id
+                }
+                console.log(audience);
+                Audiences.insert(audience);
+
             }
 
-            // Create
-            var facebookAudienceId = Meteor.call('createWebsiteAudience', parameters, integration._id);
+            // Visited but not clicked
+            if (Audiences.findOne({ type: 'salespagesVisitorsNoclick', integrationId: integrationId })) {
 
-            // Save
-            var audience = {
-                name: brand,
-                type: 'salespagesVisitors',
-                facebookAudienceId: facebookAudienceId,
-                userId: integration.userId,
-                integrationId: integration._id
+                console.log('Updating sales pages visitors did not click audience');
+
+            } else {
+
+                console.log('New audience');
+
+                // Get brand details
+                var brand = Meteor.call('getBrandName', integrationId);
+
+                parameters = {
+                    name: brand + ": sales pages visitors that didn't click",
+                    description: "All visitors of sales pages of " + brand + " that did not click through",
+                    pages: salesPages,
+                    type: 'salespagesVisitorsNoclick'
+                }
+
+                // Create
+                var facebookAudienceId = Meteor.call('createWebsiteAudience', parameters, integration._id);
+
+                // Save
+                var audience = {
+                    name: brand,
+                    type: 'salespagesVisitorsNoclick',
+                    facebookAudienceId: facebookAudienceId,
+                    userId: integration.userId,
+                    integrationId: integration._id
+                }
+                console.log(audience);
+                Audiences.insert(audience);
+
             }
-            console.log(audience);
-            Audiences.insert(audience);
+
+            // Individual pages
+            for (k in salesPages) {
+
+                if (Audiences.findOne({ type: 'salespageVisitorsNoClick', pageId: salesPages[k]._id, integrationId: integrationId })) {
+
+                    console.log('Updating visitors of sales page: ' + salesPages[k].name + 'that did not click');
+
+                } else {
+
+                    console.log('New audience');
+
+                    // Get brand details
+                    var brand = Meteor.call('getBrandName', integrationId);
+
+                    parameters = {
+                        name: brand + ": visitors of sales page " + salesPages[k].name + " that did not click",
+                        description: "All visitors of sales page " + salesPages[k].name + " that did not click",
+                        page: salesPages[k],
+                        type: 'salespageVisitorsNoClick'
+                    }
+
+                    // Create
+                    var facebookAudienceId = Meteor.call('createWebsiteAudience', parameters, integration._id);
+
+                    // Save
+                    var audience = {
+                        name: brand,
+                        pageId: salesPages[k]._id,
+                        type: 'salespageVisitorsNoClick',
+                        facebookAudienceId: facebookAudienceId,
+                        userId: integration.userId,
+                        integrationId: integration._id
+                    }
+                    console.log(audience);
+                    Audiences.insert(audience);
+
+                }
+
+            }
 
         }
 
@@ -603,6 +773,93 @@ Meteor.methods({
         return Meteor.call('createFacebookAudience', parameters, user._id);
 
     },
+    createProductPagesAudience: function(parameters, integrationId) {
+
+        // Integration
+        var integration = Integrations.findOne(integrationId);
+
+        // Find user
+        var user = Meteor.users.findOne(integration.userId);
+
+        // Pixel
+        var pixel = Metas.findOne({ type: 'pixel', userId: user._id }).value;
+
+        // Get product pages
+        var products = Meteor.call('getProducts', integrationId);
+
+        rules = [];
+        for (p in products) {
+            rules.push({ url: { i_contains: integration.url + '/products/' + products[p].shortName } })
+        }
+
+        // Rule
+        var rule = {
+            or: rules
+        };
+
+        // Parameters
+        var parameters = {
+            pixel_id: parseInt(pixel),
+            name: parameters.name,
+            subtype: "WEBSITE",
+            description: parameters.description,
+            retention_days: 30,
+            rule: JSON.stringify(rule),
+            prefill: true
+        };
+
+        console.log(parameters);
+
+        return Meteor.call('createFacebookAudience', parameters, user._id);
+
+    },
+    createProductPagesNoCartAudience: function(parameters, integrationId) {
+
+        // Integration
+        var integration = Integrations.findOne(integrationId);
+
+        // Find user
+        var user = Meteor.users.findOne(integration.userId);
+
+        // Pixel
+        var pixel = Metas.findOne({ type: 'pixel', userId: user._id }).value;
+
+        // Get product pages
+        var products = Meteor.call('getProducts', integrationId);
+
+        rules = [];
+        for (p in products) {
+
+            rules.push({
+                and: [
+                    { url: { i_contains: integration.url + '/products/' + products[p].shortName } },
+                    { url: { i_not_contains: integration.url + '/cart' } }
+                ]
+            });
+
+        }
+
+        // Rule
+        var rule = {
+            or: rules
+        };
+
+        // Parameters
+        var parameters = {
+            pixel_id: parseInt(pixel),
+            name: parameters.name,
+            subtype: "WEBSITE",
+            description: parameters.description,
+            retention_days: 30,
+            rule: JSON.stringify(rule),
+            prefill: true
+        };
+
+        console.log(parameters);
+
+        return Meteor.call('createFacebookAudience', parameters, user._id);
+
+    },
     createWebsiteAudience: function(parameters, integrationId) {
 
         // Integration
@@ -619,19 +876,49 @@ Meteor.methods({
             var allPages = parameters.pages;
             var ruleContent = [];
 
-            for (r in allPages) {
+            if (parameters.type == 'salespagesVisitorsNoclick') {
 
-                ruleContent.push({
-                    url: {
-                        i_contains: allPages[r]
-                    }
-                })
+                for (r in allPages) {
 
+                    ruleContent.push({
+                        and: [
+                            { url: { i_contains: allPages[r].url } },
+                            { url: { i_not_contains: allPages[r].target } }
+                        ]
+                    });
+
+                }
+
+                var rule = {
+                    or: ruleContent
+                }
+
+            } else {
+
+                for (r in allPages) {
+
+                    ruleContent.push({
+                        url: {
+                            i_contains: allPages[r].url
+                        }
+                    })
+
+                }
+
+                var rule = {
+                    or: ruleContent
+                }
             }
 
+        } else if (parameters.page) {
+
+            // Rule
             var rule = {
-                or: ruleContent
-            }
+                and: [
+                    { url: { i_contains: parameters.page.url } },
+                    { url: { i_not_contains: parameters.page.target } }
+                ]
+            };
 
         } else {
 
@@ -715,18 +1002,34 @@ Meteor.methods({
     createLookalikeAudience: function(parameters, userId) {
 
         // Parameters
+        // var parameters = {
+        //     name: parameters.name,
+        //     subtype: "LOOKALIKE",
+        //     origin_audience_id: parameters.referenceAudienceId,
+        //     lookalike_spec: {
+        //         type: "similarity",
+        //         country: parameters.country
+        //     },
+        //     description: parameters.description
+        // };
+
         var parameters = {
             name: parameters.name,
             subtype: "LOOKALIKE",
             origin_audience_id: parameters.referenceAudienceId,
             lookalike_spec: {
+                allow_international_seeds: true,
                 type: "similarity",
-                country: parameters.country
+                location_spec: {
+                    geo_locations: {
+                        countries: parameters.countries
+                    }
+                }
             },
             description: parameters.description
         };
 
-        console.log(parameters);
+        console.log(JSON.stringify(parameters));
 
         return Meteor.call('createFacebookAudience', parameters, userId);
 

@@ -126,6 +126,23 @@ Meteor.methods({
 
 
     },
+    getProducts: function(integrationId) {
+
+        // Get integration
+        var integration = Integrations.findOne(integrationId);
+
+        // Parameters
+        var baseUrl = 'https://' + integration.url + '/api/products';
+        var key = integration.key;
+
+        // Query
+        request = baseUrl + '?key=' + key;
+
+        res = HTTP.get(request);
+        console.log(res.data.products);
+        return res.data.products;
+
+    },
     getCustomers: function(integrationId) {
 
         // Get integration
